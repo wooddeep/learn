@@ -228,7 +228,7 @@ impl Alpha<i32> {
     }
 }
 
-impl <T> Deref for Alpha<T> {
+impl<T> Deref for Alpha<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -237,11 +237,49 @@ impl <T> Deref for Alpha<T> {
 }
 
 fn test_deref() {
-    let a = Alpha{val: 1};
+    let a = Alpha { val: 1 };
     println!("value0 = {}", a.val);
     println!("value1 = {}", *a);
 }
 
+/***************************************************************************************************
+ * test error handle
+ **************************************************************************************************/
+use std::fs::File;
+
+// unwrap方法从Option或Result中获取值, 并返回值。如果调用unwrap时，值为None或者为Err，则触发panic
+fn test_err_unwarp() {
+    let f1 = File::open("hello.txt").unwrap();
+}
+
+// expect方法和unwrap类似, 从Option或Result中获取值, 并返回值。不同的是, expect方法允许定义panic的错误消息
+fn test_err_expect() {
+    let f2 = File::open("hello.txt").expect("not found!");
+}
+
+fn func0() -> Result<File, bool> {
+    let file = File::open("hello.txt");
+    match file {
+        Ok(f) => Ok(f),
+        Err(e) => {
+            println!("# error: {}", e);
+            Err(false)
+        }
+    }
+}
+
+fn func1() -> Result<File, bool> {
+    let file = func0()?; // 如果返回错误，则直接把error传递出去
+    Ok(file)
+}
+
+fn test_err_pass() {
+    let file = func1();
+    match file {
+        Ok(f) => println!("open ok!"),
+        Err(e) => println!("{}", e)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -270,7 +308,13 @@ mod tests {
     fn test5() { super::test_node_list() }
 
     #[test]
-    fn test6() {super::test_deref()}
+    fn test6() { super::test_deref() }
+
+    #[test]
+    fn test7() { super::test_err_unwarp() }
+
+    #[test]
+    fn test8() { super::test_err_pass() }
 }
 
 fn main() {}
