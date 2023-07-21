@@ -1,8 +1,10 @@
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::path::Display;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use std::{fmt, sync, thread};
 
 /***************************************************************************************************
@@ -316,27 +318,6 @@ fn test_rc() {
     println!("Reference count:{}", Rc::strong_count(&shared_number))
 }
 
-struct MyStruct {
-    data: String,
-}
-
-fn test_rc_refcell() {
-    let shared_data = Rc::new(RefCell::new(MyStruct {
-        data: String::from("Hello, Rust!"),
-    }));
-
-    {
-        let mut mutable_reference = shared_data.borrow_mut();
-        mutable_reference.data = String::from("Modified data");
-    }
-
-    let reference = shared_data.borrow();
-    println!("Data: {}", reference.data);
-
-    let reference1 = shared_data.borrow();
-    println!("Data: {}", reference1.data);
-}
-
 // 1. 在有borrow的情况下，borrow_mut是非法的；2. 只有brorrow_mut, 且多次brorrow_mut也是非法的
 fn test_ref_cell() {
     // 创建一个包含可变数据的 RefCell
@@ -357,14 +338,46 @@ fn test_ref_cell() {
     println!("Shared data (after modification): {:?}", *shared_reference2);
 }
 
+
+
+// Arc: 使用Arc，在多线程访问共享不可变变量
+// Arc与Mutex、Arc与Atomic，在多线程访问共享可变变量
+fn test_thread_arc() {
+    let data = Arc::new(Mutex::new(vec![1, 2, 3]));
+
+    let ref0 = data.clone();
+    let job0 = thread::spawn( move || {
+        loop {
+            let xx = ref0.lock().unwrap();
+            println!("{:?}", xx);
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
+
+    let mut ref1 = data.clone();
+    let job1 = thread::spawn( move || {
+
+        loop {
+            println!("{:?}", ref1);
+            let mut xx = ref1.lock().unwrap();
+            xx.push(4);
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
+    job1.join();
+    job0.join();
+
+
+}
+
 #[cfg(test)]
 mod tests {
 
     #[test]
-
-    fn test12() {
-        super::test_rc_refcell()
+    fn test13() {
+        super::test_thread_arc()
     }
+
 
     #[test]
     fn test11() {
