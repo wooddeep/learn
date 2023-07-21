@@ -339,7 +339,6 @@ fn test_ref_cell() {
 }
 
 
-
 // Arc: 使用Arc，在多线程访问共享不可变变量
 // Arc与Mutex、Arc与Atomic，在多线程访问共享可变变量
 fn test_thread_arc() {
@@ -370,8 +369,23 @@ fn test_thread_arc() {
 
 }
 
+
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+    use std::cell::RefCell;
+
+    #[test]
+    fn test_rc_ref_cell() {
+        let data = Rc::new(RefCell::new(vec![1,2,3]));
+        let ref0 = data.clone();
+        println!("ref0 = {:?}", ref0);
+
+        let mut mut_ref = data.borrow_mut();
+        mut_ref.push(4);
+        println!("mut_ref = {:?}", mut_ref);
+
+    }
 
     #[test]
     fn test13() {
