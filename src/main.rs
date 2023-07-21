@@ -1,8 +1,9 @@
-use std::{fmt, sync, thread};
+use std::cell::RefCell;
 use std::fmt::Formatter;
 use std::ops::Deref;
 use std::path::Display;
 use std::sync::{Arc, Mutex};
+use std::{fmt, sync, thread};
 
 /***************************************************************************************************
  * test trait !
@@ -28,7 +29,10 @@ fn testTraitGenericConstraints0<T: DemoTrait>(arg: &T) {
     arg.show();
 }
 
-fn testTraitGenericConstraints1<T>(arg: &T) where T: DemoTrait {
+fn testTraitGenericConstraints1<T>(arg: &T)
+where
+    T: DemoTrait,
+{
     arg.show();
 }
 
@@ -68,7 +72,6 @@ fn test_struct_prop_life_time() {
     bar.show();
 }
 
-
 // test node list
 struct SNode<'a> {
     val: u32,
@@ -82,9 +85,7 @@ impl<'a> SNode<'a> {
             println!("--> {}", curr.val);
             match curr.next {
                 None => break,
-                Some(node) => {
-                    curr = node
-                }
+                Some(node) => curr = node,
             }
         }
     }
@@ -138,12 +139,10 @@ fn test_raw_pointer() {
     });
 
     let mutex_wrapper = arc_wrapper.clone();
-    let bar = thread::spawn(move || {
-        unsafe {
-            let wrapper = mutex_wrapper;
-            let pointer = wrapper.lock().unwrap().pointer;
-            println!("[2]--{}", *pointer);
-        }
+    let bar = thread::spawn(move || unsafe {
+        let wrapper = mutex_wrapper;
+        let pointer = wrapper.lock().unwrap().pointer;
+        println!("[2]--{}", *pointer);
     });
 
     bar.join();
@@ -243,6 +242,29 @@ fn test_deref() {
 }
 
 /***************************************************************************************************
+ * test drop
+ **************************************************************************************************/
+struct CustomSmartPointer {
+    data: String,
+}
+
+impl Drop for CustomSmartPointer {
+    fn drop(&mut self) {
+        println!("Dropping CustomSmartPointer with data `{}`!", self.data);
+    }
+}
+
+fn test_drop() {
+    let c = CustomSmartPointer {
+        data: String::from("my stuff"),
+    };
+    let d = CustomSmartPointer {
+        data: String::from(" stuff"),
+    };
+    println!("CustomSmartPointers created.")
+}
+
+/***************************************************************************************************
  * test error handle
  **************************************************************************************************/
 use std::fs::File;
@@ -277,12 +299,78 @@ fn test_err_pass() {
     let file = func1();
     match file {
         Ok(f) => println!("open ok!"),
-        Err(e) => println!("{}", e)
+        Err(e) => println!("{}", e),
     }
+}
+
+/***************************************************************************************************
+ * test smart pointer
+ **************************************************************************************************/
+use std::rc::Rc;
+fn test_rc() {
+    // rc 只能在单线程中使用
+    let shared_number = Rc::new(42);
+    let ref1 = Rc::clone(&shared_number);
+
+    let ref2 = Rc::clone(&shared_number);
+    println!("Reference count:{}", Rc::strong_count(&shared_number))
+}
+
+struct MyStruct {
+    data: String,
+}
+
+fn test_rc_refcell() {
+    let shared_data = Rc::new(RefCell::new(MyStruct {
+        data: String::from("Hello, Rust!"),
+    }));
+
+    {
+        let mut mutable_reference = shared_data.borrow_mut();
+        mutable_reference.data = String::from("Modified data");
+    }
+
+    let reference = shared_data.borrow();
+    println!("Data: {}", reference.data);
+
+    let reference1 = shared_data.borrow();
+    println!("Data: {}", reference1.data);
+}
+
+// 1. 在有borrow的情况下，borrow_mut是非法的；2. 只有brorrow_mut, 且多次brorrow_mut也是非法的
+fn test_ref_cell() {
+    // 创建一个包含可变数据的 RefCell
+    let data = RefCell::new(vec![1, 2, 3]);
+
+    // 获取不可变引用，并读取数据
+    let shared_reference = data.borrow();
+    println!("Shared data: {:?}", *shared_reference);
+
+    // 尝试获取可变引用，并修改数据
+    // {
+    //     let mut mutable_reference = data.borrow_mut();
+    //     mutable_reference.push(4);
+    // }
+
+    // 获取不可变引用，并读取修改后的数据
+    let shared_reference2 = data.borrow();
+    println!("Shared data (after modification): {:?}", *shared_reference2);
 }
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+
+    fn test12() {
+        super::test_rc_refcell()
+    }
+
+    #[test]
+    fn test11() {
+        super::test_ref_cell()
+    }
+
     #[test]
     fn test0() {
         super::test_largest()
@@ -299,22 +387,46 @@ mod tests {
     }
 
     #[test]
-    fn test3() { super::test_trait() }
+    fn test3() {
+        super::test_trait()
+    }
 
     #[test]
-    fn test4() { super::test_struct_prop_life_time() }
+    fn test4() {
+        super::test_struct_prop_life_time()
+    }
 
     #[test]
-    fn test5() { super::test_node_list() }
+    fn test5() {
+        super::test_node_list()
+    }
 
     #[test]
-    fn test6() { super::test_deref() }
+    fn test6() {
+        super::test_deref()
+    }
 
     #[test]
-    fn test7() { super::test_err_unwarp() }
+    fn test7() {
+        super::test_err_unwarp()
+    }
 
     #[test]
-    fn test8() { super::test_err_pass() }
+    fn test8() {
+        super::test_err_pass()
+    }
+
+    #[test]
+    fn test9() {
+        super::test_drop()
+    }
+
+    #[test]
+    fn test10() {
+        super::test_rc()
+    }
 }
 
-fn main() {}
+fn main() {
+    test_drop();
+}
