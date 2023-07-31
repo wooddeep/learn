@@ -338,7 +338,20 @@ fn test_ref_cell() {
     println!("Shared data (after modification): {:?}", *shared_reference2);
 }
 
+fn test_rc_ref_cell() {
+    let mut data = Rc::new(RefCell::new(vec![1,2,3]));
 
+    let rc = Rc::clone(&data);
+    let mut mut_ref = (*rc).borrow_mut();
+    mut_ref.push(5);
+
+    println!("the last data: {:?}", mut_ref);
+
+}
+
+/***************************************************************************************************
+ * test thread arc
+ **************************************************************************************************/
 // Arc: 使用Arc，在多线程访问共享不可变变量
 // Arc与Mutex、Arc与Atomic，在多线程访问共享可变变量
 fn test_thread_arc() {
@@ -366,7 +379,47 @@ fn test_thread_arc() {
     job1.join();
     job0.join();
 
+}
 
+
+/***************************************************************************************************
+ * test cycle ref
+ **************************************************************************************************/
+#[derive(Debug)]
+enum List {
+    Cons(i32, RefCell<Rc<List>>),
+    Nil,
+}
+
+impl List {
+    fn tail(&self) -> Option<&RefCell<Rc<List>>> {
+        match self {
+            List::Cons(_, item) => Some(item),
+            List::Nil => None,
+        }
+    }
+}
+
+fn test_cycle_ref() {
+    let a = Rc::new(List::Cons(5, RefCell::new(Rc::new(List::Nil))));
+    println!("a initial rc count = {}", Rc::strong_count(&a));
+
+    println!("a next item = {:?}", a.tail());
+
+    let b = Rc::new(List::Cons(10, RefCell::new(Rc::clone(&a))));
+    println!("a rc count after b creation = {}", Rc::strong_count(&a));
+    println!("b initial rc count = {}", Rc::strong_count(&b));
+    println!("b next item = {:?}", b.tail());
+
+    if let Some(link) = a.tail() {
+        *link.borrow_mut() = Rc::clone(&b);
+    }
+
+    println!("b rc count after changine a = {}", Rc::strong_count(&b));
+    println!("a rc count after changine a = {}", Rc::strong_count(&a));
+
+    // 取消下行注释, 导致栈溢出
+    // println!("a next item = {:?}", a.tail());
 }
 
 
@@ -376,22 +429,19 @@ mod tests {
     use std::cell::RefCell;
 
     #[test]
+    fn test_cycle_ref() {
+        super::test_cycle_ref();
+    }
+
+    #[test]
     fn test_rc_ref_cell() {
-        let data = Rc::new(RefCell::new(vec![1,2,3]));
-        let ref0 = data.clone();
-        println!("ref0 = {:?}", ref0);
-
-        let mut mut_ref = data.borrow_mut();
-        mut_ref.push(4);
-        println!("mut_ref = {:?}", mut_ref);
-
+        super::test_rc_ref_cell();
     }
 
     #[test]
     fn test13() {
         super::test_thread_arc()
     }
-
 
     #[test]
     fn test11() {
