@@ -32,8 +32,8 @@ fn testTraitGenericConstraints0<T: DemoTrait>(arg: &T) {
 }
 
 fn testTraitGenericConstraints1<T>(arg: &T)
-where
-    T: DemoTrait,
+    where
+        T: DemoTrait,
 {
     arg.show();
 }
@@ -309,6 +309,7 @@ fn test_err_pass() {
  * test smart pointer
  **************************************************************************************************/
 use std::rc::Rc;
+
 fn test_rc() {
     // rc 只能在单线程中使用
     let shared_number = Rc::new(42);
@@ -339,14 +340,14 @@ fn test_ref_cell() {
 }
 
 fn test_rc_ref_cell() {
-    let mut data = Rc::new(RefCell::new(vec![1,2,3]));
+    let mut data = Rc::new(RefCell::new(vec![1, 2, 3]));
 
-    let rc = Rc::clone(&data);
+    let rc = data.clone();
+    //let rc = Rc::clone(&data);
     let mut mut_ref = (*rc).borrow_mut();
     mut_ref.push(5);
 
     println!("the last data: {:?}", mut_ref);
-
 }
 
 /***************************************************************************************************
@@ -358,7 +359,7 @@ fn test_thread_arc() {
     let data = Arc::new(Mutex::new(vec![1, 2, 3]));
 
     let ref0 = data.clone();
-    let job0 = thread::spawn( move || {
+    let job0 = thread::spawn(move || {
         loop {
             let xx = ref0.lock().unwrap();
             println!("{:?}", xx);
@@ -367,8 +368,7 @@ fn test_thread_arc() {
     });
 
     let mut ref1 = data.clone();
-    let job1 = thread::spawn( move || {
-
+    let job1 = thread::spawn(move || {
         loop {
             println!("{:?}", ref1);
             let mut xx = ref1.lock().unwrap();
@@ -378,7 +378,6 @@ fn test_thread_arc() {
     });
     job1.join();
     job0.join();
-
 }
 
 
@@ -422,11 +421,80 @@ fn test_cycle_ref() {
     // println!("a next item = {:?}", a.tail());
 }
 
+#[derive(Debug)]
+struct Node {
+    data: i32,
+    next: Option<Rc<RefCell<Node>>>,
+}
+
+impl Node {
+    fn next(&self) -> Option<&Rc<RefCell<Node>>> {
+        match &self.next {
+            Some(value) => Some(&value),
+            None => None,
+        }
+    }
+}
+
+// error
+fn test_cycle_ref_1() {
+    let node1 = Rc::new(RefCell::new(Node { data: 1, next: None }));
+    let node2 = Rc::new(RefCell::new(Node { data: 2, next: None }));
+
+    // 创建循环引用
+    (*node1).borrow_mut().next = Some(node2.clone());
+    (*node2).borrow_mut().next = Some(node1.clone());
+
+    // 程序尝试释放node1和node2，但由于它们相互持有引用，导致无限递归调用
+    println!("node1's next = {:?}", *node1);
+}
+
+fn test_weak_ref() {
+    let node1 = Rc::new(RefCell::new(Node { data: 1, next: None }));
+    let node2 = Rc::new(RefCell::new(Node { data: 2, next: None }));
+
+    // 创建循环引用
+    (*node1).borrow_mut().next = Some(node2.clone());
+    (*node2).borrow_mut().next = Some(node1.clone());
+
+    // 程序尝试释放node1和node2，但由于它们相互持有引用，导致无限递归调用
+    println!("node1's next = {:?}", *node1);
+}
+
+fn test_arc() {
+    let data = Arc::new(Mutex::new(vec![1, 2, 3]));
+
+    // Clone the Arc to modify its contents
+    let new_data = Arc::clone(&data);
+
+    let copy_data = Arc::clone(&data);
+
+    {
+        // Access the Mutex and modify the Vec inside it
+        let mut locked_data = new_data.lock().unwrap();
+        locked_data.push(4);
+
+        println!("{:?}", *locked_data); // This will display the modified Vec
+    }
+
+    println!("{:?}", copy_data.lock().unwrap()); // This will display the modified Vec ??
+}
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-    use std::cell::RefCell;
+
+    #[test]
+    fn test_arc() { super::test_arc(); }
+
+    #[test]
+    fn test_cycle_ref_1() {
+        super::test_weak_ref();
+    }
+
+    #[test]
+    fn test_cycle_ref_2() {
+        super::test_cycle_ref_1();
+    }
 
     #[test]
     fn test_cycle_ref() {
